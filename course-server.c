@@ -5,6 +5,7 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#define maxlen 100
 
 struct messager
 {
@@ -12,6 +13,133 @@ struct messager
     char message[256];
 };
 
+struct queue
+{
+	pthread_mutex_t mutex;
+	int elements;
+	char packet[5][maxlen];
+} qpacket = {PTHREAD_MUTEX_INITIALIZER};
+
+void *broadcaster(void*);//вещатель по состоянию очереди
+
+void *listentcp(void *arg)//приемник входящих подключений клиентов
+{
+ 	int sockfd, newsockfd;
+ 	socklen_t clilen;
+ 	struct sockaddr_in serv_addr, cli_addr;
+ 		
+ 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+ 	if (sockfd < 0) 
+ 	{
+ 	       error("socket() failed");
+ 	}
+ 		 
+ 	bzero((char *) &serv_addr, sizeof(serv_addr));
+ 
+ 	serv_addr.sin_family = AF_INET;
+ 	serv_addr.sin_addr.s_addr = INADDR_ANY;
+ 	serv_addr.sin_port = htons(33000);
+ 
+ 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+ 	{
+ 		error("bind() failed");
+ 	}
+ 
+ 	listen(sockfd,5);
+ 	clilen = sizeof(cli_addr);
+ 
+ 	while (1) 
+ 	{
+ 		newsockfd = accept(sockfd,(struct sockaddr *) &cli_addr, &clilen);
+ 		if (newsockfd < 0) 
+ 		{
+ 			error("accept() failed");
+ 		}
+ 		printf("new client\n");
+ 		pthread_t thread;
+ 	       	pthread_create(&thread, NULL, tcpclient, (void*)&newsockfd);
+ 	    }
+ 	    close(newsockfd);
+ 	    close(sockfd);
+}
+
+void *tcpclient(void*);//обработчик входящих подключений клиентов
+
+void *listentcp_manager(void *arg)//приемник входящих подключений менеджеров
+{
+	int sockfd, newsockfd;
+ 	socklen_t clilen;
+ 	struct sockaddr_in serv_addr, cli_addr;
+ 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+ 	if (sockfd < 0) 
+ 	{
+ 	       error("socket() failed");
+ 	}
+ 	 
+ 	bzero((char *) &serv_addr, sizeof(serv_addr));
+ 	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_port = htons(33000);
+ 
+ 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
+ 	{
+ 		error("bind() failed");
+ 	}
+ 
+ 	listen(sockfd, 5);
+ 	clilen = sizeof(cli_addr);
+ 	while (1) 
+ 	{
+ 		newsockfd = accept(sockfd,(struct sockaddr *) &cli_addr, &clilen);
+ 		if (newsockfd < 0) 
+ 		{
+ 			error("accept() failed");
+ 		}
+ 		printf("new manager\n");
+ 		pthread_t thread;
+ 	       	pthread_create(&thread, NULL, tcpmanager, (void*)&newsockfd);
+ 	}
+ 
+ 	    close(newsockfd);
+ 	    close(sockfd);
+}
+void *tcpmanager(void*);//обработчик входящих подключений менеджеров
+
+void msg_to_q(char *message)//помещение сообщения в очередь
+{
+	int flag = 0;
+	if (qpacket.elements == 5)
+	{
+		printf("очередь переполнена\n");
+		flag = -1;
+	}
+	pthread_mutex_lock(&qpacket.mutex);
+	bcopy(pt, qpacket.packet[qpacket.elements], maxlen);
+	bcopy(pt, qpacket.packet[qpacket.elements], maxlen+12);
+	qpacket.elements++;
+	pthread_mutex_unlock(&qpacket.mutex);
+	return flag;
+}
+char *msg_get() 
+{
+	char *pt = (char*) malloc(sizeof(char) * MAXMSGLEN);
+	pthread_mutex_lock(&qpacket.mutex);
+	if(qpacket.elements == 0)
+	{
+		return pt;
+	}
+	bcopy(qpacket.packet[0], pt, MAXMSGLEN);
+	qpacket.elements; 
+	bzero(qpacket.packet[0], MAXMSGLEN);
+	for(int i = 0; i < qpacket.elements-1; i++)
+	{
+		bcopy(qpacket.packet[i+1], qpacket.packet[i], MAXMSGLEN);
+	}
+
+ 	qpacket.elements--;
+	pthread_mutex_unlock(&qpacket.mutex);
+	return pt;
+}
 int main()
 {
     int sock, listener;
@@ -33,31 +161,7 @@ int main()
     for(int i=0; i<20; i++)
         addr.sin_port = htons(3425 + i);
 
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    if(bind(listener, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-    {
-        perror("bind");
-        exit(2);
-    }
-
     listen(listener, 1);
     
-    while(1)
-    {
-        sock = accept(listener, NULL, NULL);
-        if(sock < 0)
-        {
-            perror("accept");
-            exit(3);
-        }
-        while(1)
-        {
-            bytes_read = recv(sock, buf, 1024, 0);
-            if(bytes_read <= 0) break;
-            else printf("\n%s: %s\n", uname, message);
-            send(sock, message, strlen(message), 0);
-        }
-        close(sock);
-    }   
     return 0;
 }
