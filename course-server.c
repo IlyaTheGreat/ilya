@@ -10,7 +10,7 @@
 struct messager
 {
     char uname[15];
-    char message[256];
+    char message[maxlen];
 };
 
 struct queue
@@ -122,18 +122,18 @@ void msg_to_q(char *message)//помещение сообщения в очер�
 }
 char *msg_get() 
 {
-	char *pt = (char*) malloc(sizeof(char) * MAXMSGLEN);
+	char *pt = (char*) malloc(sizeof(char) * maxlen);
 	pthread_mutex_lock(&qpacket.mutex);
 	if(qpacket.elements == 0)
 	{
 		return pt;
 	}
-	bcopy(qpacket.packet[0], pt, MAXMSGLEN);
+	bcopy(qpacket.packet[0], pt, maxlen);
 	qpacket.elements; 
-	bzero(qpacket.packet[0], MAXMSGLEN);
+	bzero(qpacket.packet[0], maxlen);
 	for(int i = 0; i < qpacket.elements-1; i++)
 	{
-		bcopy(qpacket.packet[i+1], qpacket.packet[i], MAXMSGLEN);
+		bcopy(qpacket.packet[i+1], qpacket.packet[i], maxlen);
 	}
 
  	qpacket.elements--;
@@ -160,8 +160,5 @@ int main()
     addr.sin_family = AF_INET;
     for(int i=0; i<20; i++)
         addr.sin_port = htons(3425 + i);
-
-    listen(listener, 1);
-    
     return 0;
 }
