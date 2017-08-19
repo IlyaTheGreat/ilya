@@ -10,10 +10,12 @@
 #include <arpa/inet.h>
 #include <strings.h>
 #include <signal.h>
+#define ALLOW_REIEVE "RCV"
+#define DENY_RECIEVE "RDN"
 
 void *tcp_reciever(void *arg)
 {
- 	int my_sock;
+ 	int sock;
  	int sleep_time, len;
  	char buff[100];
  	struct sockaddr_in serv_addr;
@@ -23,7 +25,7 @@ void *tcp_reciever(void *arg)
 
  	addr = (char*)arg;
  
- 	printf("CLIENT 2 type: start.. connecting to %s:%d\n", addr, SERVPORT);
+ 	printf("CLIENT 2 type: start.. connecting to %s:%d\n", addr, 33000);
  
  	my_sock = socket(AF_INET, SOCK_STREAM, 0);
  	if (my_sock < 0)
@@ -40,7 +42,7 @@ void *tcp_reciever(void *arg)
  	serv_addr.sin_family = AF_INET;
  
  	bcopy((char *)server->h_addr_list[0], (char *)&serv_addr.sin_addr.s_addr, server->h_length);
- 	serv_addr.sin_port = htons(SERVPORT);
+ 	serv_addr.sin_port = htons(33000);
  
  	if (connect(my_sock,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
 	{
@@ -53,8 +55,8 @@ void *tcp_reciever(void *arg)
  	while (tcp_recv.allow == 1)
 	{
  		fflush(stdout);
- 		bzero(&buff, MAXMSGLEN);
-		bytes_recv = recv(my_sock,(char*)&buff[0], MAXMSGLEN, 0);
+ 		bzero(&buff, 100);
+		bytes_recv = recv(my_sock,(char*)&buff[0], 100, 0);
 		if (bytes_recv <= 0) 
 		error("recv() failed");
 		AMessage *pmsg;
@@ -66,18 +68,18 @@ void *tcp_reciever(void *arg)
 		}
 		len = pmsg->b;
 		sleep_time = pmsg->a;
-		printf("CLIENT 2 type: recieved %d bytes: <=== ",bytes_recv);
+		printf(" recieved %d bytes: <=== ",bytes_recv);
 			
 		printf("[%d][%d][%s]\n", pmsg->a, pmsg->b, pmsg->c);
 		amessage__free_unpacked(pmsg,NULL);
 
-		printf("CLIENT 2 type: sleep %d sec\n\n", sleep_time);
+		printf(" sleep %d sec\n\n", sleep_time);
  		sleep(sleep_time);
- 		}
- 		printf("CLIENT 2 type: queue is empty\n");
- 		close(my_sock);
- 		pthread_exit(0);
  	}
+	printf(" queue is empty\n");
+	close(sock);
+	pthread_exit(0);
+}
 
 
 void *udp_listener(void *arg)
